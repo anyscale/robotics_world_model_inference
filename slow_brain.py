@@ -102,7 +102,6 @@ import ray
 class Planner:
     """A 'slow brain' bound to one cloud GPU. Loads the world model once, then plans.
 
-    One Planner per GPU; scale the fleet by creating more. This is the unit Ray
     fans out — deeper search (more compute/plan) or wider throughput (more planners).
     """
 
