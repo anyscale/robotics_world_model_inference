@@ -14,6 +14,12 @@ for it on Ray + Anyscale:
 **Fast brain on the robot, slow brain in the cloud.** The cloud runs the expensive world-model
 planning; the fast policy runs at the edge and pulls distilled updates.
 
+**This is the autonomous-driving playbook, generalized.** AV already proves the split: the heavy
+compute (large-scale *simulation*) runs off-vehicle in the cloud while a tightly-budgeted policy runs
+on the car. We swap the hand-built simulator for a *learned* world model the robot can search inside,
+so the same architecture works for general-purpose robots, where you can't hand-author a simulator for
+every object and task.
+
 > Thought-leadership / orchestration template. The point is the **pattern + Ray scale-out**, not
 > publishable scaling numbers — those need bigger hardware than the 4× L4 dev cluster (see
 > [Scaling on production hardware](#scaling-on-production-hardware)).
@@ -22,20 +28,7 @@ planning; the fast policy runs at the edge and pulls distilled updates.
 
 ## The architecture
 
-```
-    ┌──────────────────────  THE CLOUD (Anyscale)  ──────────────────────┐
-    │  V-JEPA 2-AC world model (1.3B)     Ray fans the search out:        │
-    │  ┌───────────────────────┐          • DEEPER  (more compute/action) │
-    │  │ imagine futures + CEM  │ × N GPUs • WIDER   (more robots at once) │
-    │  │ search over actions    │                                         │
-    │  └───────────────────────┘          mines (state → best action)     │
-    │             └──────────── distill ──────────────┘                   │
-    └───────────────────────────│────────────────────────────────────────┘
-                  periodic download │ of the fast policy
-    ┌───────────────────────────▼────────────────────────────────────────┐
-    │  THE ROBOT:  fast distilled policy — milliseconds, no search         │
-    └──────────────────────────────────────────────────────────────────── ┘
-```
+![Slow brain in the cloud, fast brain on the robot](architecture.png)
 
 ---
 
@@ -97,13 +90,14 @@ python -c "import torch; torch.hub.load('facebookresearch/vjepa2','vjepa2_ac_vit
 | | result |
 |---|---|
 | Single planning action (light config) | energy 0.44, **2.4 s** on one L4 |
-| **Production-strength** plan (400 × 10 × 2) | **~98 s/action**, 19 GB — ~thousands× too slow for on-robot |
+| **Production-strength** plan (400 × 10 × 2) | **~98 s/action** on L4 (19 GB). Even on H100/B200 it's single-digit seconds — still far slower than a 10–50 ms control loop |
 | **Deeper** (test-time compute) | more compute → lower energy to goal (the "o1 curve") |
-| **Wider** (fleet throughput) | ~**3.8×** more actions/sec across 4 GPUs (near-linear) |
-| Slow → fast **distillation** | distilled policy acts in **~0.12 ms** vs 98 s of search |
+| **Wider** (fleet throughput) | near-linear more actions/sec as GPUs are added (plotted against an ideal-scaling line) |
+| Slow → fast **distillation** | mine `(state → action)` labels by sweeping the goal, distill into a small policy that **generalizes on a held-out split** and acts in **~0.12 ms** vs seconds of search |
 
-The ~98 s/action figure is the whole argument: search is far too heavy for a robot's 10–50 ms control
-loop, so it belongs in the cloud, scaled with Ray, and distilled down for the edge.
+The latency gap is the whole argument: full-strength search runs in seconds (~98 s on our L4), while a
+robot's control loop is 10–50 ms. No GPU closes a gap that large — even top accelerators leave it in the
+seconds (see below) — so search belongs in the cloud, scaled with Ray, and distilled down for the edge.
 
 ## Scaling on production hardware
 
@@ -127,3 +121,4 @@ The thesis is hardware-agnostic: **planning is elastic cloud compute; deployment
 - V-JEPA 2 (Meta AI, 2024–2025) — `facebookresearch/vjepa2`, MIT.
 - Cross-Entropy Method for model-predictive planning.
 - o1-style test-time compute (the reasoning analogue this brings to control).
+- Search-as-teacher distillation: AlphaGo→AlphaZero (MCTS → policy net), Guided Policy Search (trajectory optimization → NN controller).
