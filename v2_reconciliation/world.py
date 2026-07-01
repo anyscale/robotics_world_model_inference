@@ -43,7 +43,9 @@ class World:
         self.z, self.pose = self.core.step(self.z, self.pose, a)
         return {"pose": self.pose.float().cpu().numpy(),
                 "energy": self.core.energy(self.z, self.z_goal),
-                "pose_err": float(np.linalg.norm((self.pose[..., :3] - self.p_goal[..., :3]).cpu().numpy()))}
+                "pose_err": float(np.linalg.norm((self.pose[..., :3] - self.p_goal[..., :3]).cpu().numpy())),
+                # pooled latent summary the on-robot reflex consumes (its "perception")
+                "z_pool": self.z[:, -1].mean(1).flatten().float().cpu().numpy()}
 
     def snapshot(self):
         """What the robot ships to the cloud: current latent + pose (kept on GPU until asked)."""

@@ -17,20 +17,20 @@ VJEPA_REPO = f"{TORCH_HOME}/hub/facebookresearch_vjepa2_main"
 
 QUICK = "--quick" in sys.argv
 NUM_WORKERS = 4
-DELTAS = [0, 4, 8] if QUICK else [0, 2, 4, 6, 8, 10]
-SEEDS = [0] if QUICK else [0, 1, 2, 3]
-HORIZON = 16 if QUICK else 20
-CLOUD_PERIOD = 4
+DELTAS = [0, 4, 8] if QUICK else [0, 2, 4, 6, 8]
+SEEDS = [0] if QUICK else [0, 1, 2]
+HORIZON = 16
+CLOUD_PERIOD = 2          # = ROLLOUT: cloud tracks continuously (minimal reflex-bridge drift between chunks)
 ROLLOUT = 2
 GOAL_STEPS = 8
-CLOUD_SAMPLES, CLOUD_STEPS = (32, 4) if QUICK else (32, 4)
-REFLEX_SAMPLES, REFLEX_STEPS, REFLEX_GAIN = 4, 1, 0.5
+CLOUD_SAMPLES, CLOUD_STEPS = 128, 6          # the USABLE cloud (reaches the goal); heavy -> motivates sharding
+REFLEX_SAMPLES, REFLEX_STEPS, REFLEX_GAIN = 4, 1, 0.5   # (unused: reflex is now the distilled policy)
 ENV_DRIFT = [0.0, 0.02, 0.0, 0.0, 0.0, 0.0, 0.0]  # exogenous off-axis push (+y) per tick
 
 
 def main():
     ray.init(address="auto", logging_level="ERROR", runtime_env={
-        "py_modules": [f"{REPO_DIR}/p1_world.py"],
+        "py_modules": [f"{REPO_DIR}/old/p1_world.py"],
         "env_vars": {"TORCH_HOME": TORCH_HOME, "HF_HOME": "/mnt/cluster_storage/hf_cache",
                      "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"},
     })
@@ -39,6 +39,11 @@ def main():
     print(f"GPUs: {int(ray.cluster_resources().get('GPU', 0))} | deltas: {DELTAS} | seeds: {SEEDS} | "
           f"horizon: {HORIZON} | chunk rollout: {ROLLOUT} | cloud {CLOUD_SAMPLES}x{CLOUD_STEPS}")
     workers = [SpikeWorker.remote() for _ in range(NUM_WORKERS)]
+
+    # load the distilled reflex (fast brain) onto every worker
+    reflex_w = {k: np.asarray(v) for k, v in np.load(f"{REPO_DIR}/reflex_policy.npz").items()}
+    ray.get([w.set_reflex.remote(reflex_w) for w in workers])
+    print("distilled reflex loaded on all workers", flush=True)
 
     traj = np.load(f"{VJEPA_REPO}/notebooks/franka_example_traj.npz")
     ctx_img, goal_img = traj["observations"][0, 0], traj["observations"][0, 1]

@@ -17,6 +17,106 @@ story is "scale by changing a number, not a rewrite."
 
 ---
 
+## 🔧 ACTIVE REBUILD — "Option B" (2026-07-01 PM) — READ THIS FIRST
+
+**Why:** review found the v2 demo's fast reflex was hollow — the live loop's on-edge "policy" literally
+sat still (`np.zeros`) until a cloud reply arrived, and the task was so trivial (reach a +x goal in
+additive pose-space) that *any* competent reflex matched the cloud. User rejected framing it as a "weak
+reflex" (would be laughed at) and set the bar: **the cloud must produce a usable answer, and a real
+learned reflex must genuinely fail without it.** This is "Option B".
+
+**KEY FINDINGS (all measured on 4×L4, 2026-07-01):**
+- **Trivial-task trap:** on the +x goal the optimal action is ~constant (`+x` at maxnorm), so a
+  distilled policy can't lose. Fix is NOT a harder goal (couldn't construct one cheaply); it's that
+  the cloud must **deliberate** (multi-step) while the reflex **reacts** (one-shot). Reactive vs
+  deliberative — the actual thesis ("a reflex can't deliberate").
+- **Cloud usability (`cloud_quality.py` sweep):** greedy `rollout=1` CEM WANDERS (0.23–0.54, sometimes
+  worse than start 0.32) at any compute. `rollout=2` + enough search REACHES the goal: **128 samples ×
+  6 cem_steps × rollout 2 → pose_err 0.045** (start 0.320). More compute past that = noise (256×8×2 →
+  0.071). **USABLE CLOUD CONFIG = 128×6×2.** ~18 s/plan (heavy → motivates the shard lever).
+- **METRIC:** pose-error (xyz distance to goal) is the money metric. **Latent energy is diffuse — it does
+  NOT track goal-reaching (energy ~0.22 while pose→0.045). DROPPED energy from the money chart.**
+- **Reflex = distilled MLP** (v1 recipe reused, `distill_reflex.py`): mine (latent-summary→cloud action)
+  labels from the USABLE cloud, train tiny MLP (2816-dim feat → standardize → top-10 PCA → 10→16→7).
+  val MSE 0.0020 vs predict-the-mean baseline 0.0134 (beats it 6.7×) — a real learned policy.
+  Conditioned on the **latent** (not goal pose → no beelining cheat). Actions **clipped to maxnorm**.
+  Closed-loop it approaches then DRIFTS (0.32→0.14→0.60) — reactive, can't hold. The "fast but weak" brain.
+- **Money chart (`old/p1_run.py`, 3 seeds × Δ∈{0,2,4,6,8}, cloud 128×6×2, cloud_period=2):**
+  reflex flat **0.60**; naive **0.19–0.32** (drifts back toward reflex as Δ grows); vector-add **0.07–0.15**
+  at Δ≥4. Overlap at Δ=0–2 (little staleness + one unlucky CEM seed). NOISY (stochastic under-resourced
+  cloud) — **framed honestly as illustrative demo numbers, not a benchmark** (user directive: narrative +
+  orchestration matter most). Chart = `images/p1_feasibility.png` (single pose-error panel, rendered by
+  `plot_money.py` from measured values in `images/p1_money_data.npz` — re-plottable without re-running).
+
+**LOCKED DECISIONS (this rebuild):**
+- Cloud = deliberative multi-step CEM (128×6×2); reflex = distilled reactive one-shot MLP. Cloud wins by
+  **deliberation + test-time compute**; reflex fails because it can't plan ahead (can't hold the goal).
+- `cloud_period = rollout` (=2) so the cloud tracks continuously (minimal reflex-bridge drift).
+- pose-error only on the money chart (energy dropped).
+- Narrative + Ray/Anyscale orchestration > benchmark precision. Demo, not prod; don't undersell.
+
+**REMAINING PLAN (Option A of the live-cloud decision — APPROVED):**
+1. **Serve the usable cloud (128×6×2) through the SHARDED planner (Lever 1)** in the Ray Serve deployment
+   → ~4–5 s/plan across 4 GPUs → snappy live demo AND makes "cloud must be big to be usable → scale it
+   across GPUs" the central Anyscale beat. (`sharded_planner.py` exists in `old/`; wire into the Serve app.)
+2. **Wire the distilled reflex into the live loop** (`robot_client.py`): kill the idle `np.zeros`; feed it
+   the latent from the World snapshot (needs `world.step`/`snapshot` to return pooled-z or z). Use
+   `reflex_policy.py` (numpy MLP) + `reflex_policy.npz`.
+3. **Notebook**: serve sharded cloud; reflex acts every tick; reconciliation episode; embed new money chart.
+   Reframe intro/§5/diagram — reflex = distilled REACTIVE policy, cloud = DELIBERATIVE search, demo framing,
+   sharding-makes-usable-cloud-fast motivation. Regenerate `architecture.png` (reflex box label).
+4. **Re-validate** notebook end-to-end (`run_nb.py`).
+
+**ARTIFACTS on disk (untracked; regenerate if cluster wiped):**
+- `reflex_policy.npz` + `reflex_problem.npz` — distilled reflex weights + the problem. Regen: `python
+  distill_reflex.py` (needs the usable cloud; ~5 min mining + train + verify).
+- `images/p1_feasibility.png` + `images/p1_money_data.npz` — money chart + data. Regen chart: `python
+  plot_money.py`. Regen data: `python old/p1_run.py` (~21 min, 3 seeds).
+- New scripts: `distill_reflex.py`, `reflex_policy.py`, `verify_reflex.py`, `cloud_quality.py`,
+  `find_hard_goal.py`, `plot_money.py`. Edited: `old/p1_world.py` (reflex + cloud_mpc + run_episode),
+  `old/p1_run.py` (config).
+
+**STATUS: money chart DONE. Step 1 (shard the served cloud) DONE ✅.**
+- `sharded_planner.py` moved back to top-level (it's core now). Added `ShardedSlowBrain` deployment +
+  `build_sharded_app(n_shards, total_samples, cem_steps, rollout)` to `slow_brain_service.py` (coordinator
+  num_gpus=0, creates n_shards GPU ShardWorkers). `p2_sharded_serve_test.py` validated over HTTP:
+  **6.2 s/plan across 3 shards (~3× vs ~18 s single-GPU); closed-loop usable 0.32→0.036 (ends 0.15).**
+  GPU budget: 3 shards + 1 World = 4 L4s.
+- Step 2 (distilled reflex in the live loop) DONE ✅. `world.py` step() now returns `z_pool` (pooled
+  latent = the reflex's perception). `robot_client.py` rewritten: `_step_toward` restored (it had been
+  lost — file was broken), added `_reflex_action` (clipped distilled action), `run_episode(... reflex=...)`
+  runs the reflex every tick until a cloud reply lands, then steers to the reconciled destination;
+  `post_plan` no longer overrides the served config. `reflex_policy.py` = numpy `ReflexPolicy`.
+  `p2_live_test.py` validated live: reflex acts (0.28→0.16 then DRIFTS to 0.46), stale cloud reply
+  (Δ=13, 6.2s) reconciled → RECOVERS to 0.129. Compelling live story: reflex drifts, late cloud rescues.
+- **NEXT: step 3** — rebuild the NOTEBOOK (edit .ipynb DIRECTLY — user has manual edits, do NOT run
+  build_notebook.py): cell 4 py_modules += sharded_planner.py, reflex_policy.py; cell "serve" ->
+  `build_sharded_app(n_shards=3,128,6,2)`; reconciliation cell -> load `ReflexPolicy`, pass `reflex=` to
+  `run_episode`, update reflex baseline to 0.60; reframe intro/§2/§3/§5 (reflex = distilled REACTIVE
+  policy; cloud = DELIBERATIVE search; sharding makes the usable cloud servable; demo framing); update
+  under-the-hood cells; regenerate `architecture.png` (reflex box label). Step 4: re-validate via run_nb.py.
+- **Notebook CODE cells rebuilt + END-TO-END VALIDATED ✅** (2026-07-01 PM): cell 4 py_modules +=
+  sharded_planner/reflex_policy; serve cell → `build_sharded_app(3,128,6,2)`; reconciliation cell loads
+  `ReflexPolicy`, `run_episode(reflex=..., control_hz=2.0, horizon=20)`, baseline 0.60. `python
+  old/run_nb.py` (NOT top-level — run_nb.py lives in old/) ran CLEAN in **94 s** (budget 600): serve
+  sharded 38 s, plan 6.2 s, live reconciliation 12 s (reflex drifts to 0.41, stale reply Δ=12/5.7 s
+  reconciled → recovers), charts embedded. GPU budget live: 3 shards + World = 4.
+- Step 3 (narrative + diagram) DONE ✅: reframed §2 (usable cloud heavy → served sharded), §5 (reflex =
+  distilled reactive policy that drifts; cloud reconciled rescues), §6 (pose-only chart, demo-noise framing,
+  0.60 baseline), §7 (sharding is what made it servable), and the serve/robot/shard under-the-hood cells.
+  `architecture.png` regenerated (reflex "distilled/one-shot/reactive — drifts"; cloud "multi-step CEM
+  deliberative / sharded"; "~18s on 1 GPU → ~6s on 3"). Prose edits preserved user wording where possible.
+- **STATUS: Option-B rebuild COMPLETE ✅ — final `python old/run_nb.py` ran CLEAN in 94 s (budget 600).**
+  Remaining optional polish: refresh `README.md` (old numbers 2.8s/0.477 → sharded 6s/reflex-0.60 story);
+  tidy new one-off diagnostics into `old/` (find_hard_goal, cloud_quality, verify_reflex, p2_live_test).
+  Files: NEW `sharded_planner.py`, `reflex_policy.py`, `distill_reflex.py`, `verify_reflex.py`,
+  `cloud_quality.py`, `plot_money.py`, `p2_sharded_serve_test.py`, `p2_live_test.py`; edited `world.py`
+  (z_pool), `robot_client.py` (reflex + restored _step_toward), `slow_brain_service.py` (ShardedSlowBrain),
+  `old/p1_world.py` + `old/p1_run.py`; artifacts `reflex_policy.npz`, `reflex_problem.npz`,
+  `images/p1_feasibility.png` (single panel), `images/p1_money_data.npz`.
+
+---
+
 ## ☀️ MORNING SUMMARY (left overnight 2026-07-01)
 
 **v2 is essentially complete and review-ready. Nothing broken, no decisions pending.** Overnight I did the

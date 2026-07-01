@@ -54,6 +54,31 @@ class SpikeWorker:
             random_resize_scale=(1.0, 1.0), reprob=0.0, auto_augment=False,
             motion_shift=False, crop_size=CROP,
         )
+        self.reflex_w = None   # distilled fast-reflex weights (set via set_reflex)
+
+    # ---- distilled reflex (fast brain) ------------------------------------
+    def set_reflex(self, w):
+        """Load the distilled reflex policy weights (numpy) onto the device."""
+        self.reflex_w = {k: torch.as_tensor(np.asarray(v), device=self.device, dtype=torch.float32)
+                         for k, v in w.items()}
+        return True
+
+    def _pool_t(self, z):
+        return z[:, -1].mean(1).flatten()
+
+    @torch.no_grad()
+    def reflex_action(self, z, z_goal, maxnorm=0.05):
+        """One-shot reactive reflex: MLP(pool(z) + pool(z_goal)) -> action, clipped to the valid range.
+        No search, no lookahead — the 'fast but weak' on-robot policy."""
+        w = self.reflex_w
+        feat = torch.cat([self._pool_t(z), self._pool_t(z_goal)], -1)
+        x = ((feat - w["mu"]) / w["sd"]) @ w["P"].T
+        a = torch.relu(x @ w["w0"].T + w["b0"]) @ w["w2"].T + w["b2"]   # [7]
+        a = a.clone()
+        a[:3] = torch.clip(a[:3], -maxnorm, maxnorm)
+        a[3:6] = 0.0
+        a[6] = torch.clip(a[6], -maxnorm, maxnorm)
+        return a.reshape(1, 1, 7)
 
     # ---- encode / dynamics ------------------------------------------------
     @torch.no_grad()
@@ -112,7 +137,9 @@ class SpikeWorker:
                           in-flight motion is double-counted -> overshoot, error grows with delta.
           - vector_add  : track the chunk's ABSOLUTE target poses anchored at the SNAPSHOT pose -> the
                           drift is cancelled (poses_to_diff back onto the intended trajectory).
-          - reflex      : ignore the cloud; weak CEM every tick (flat baseline).
+          - reflex      : ignore the cloud; the DISTILLED reactive reflex every tick (one-shot MLP,
+                          no lookahead) — a real fast policy, but it can't deliberate so it drifts /
+                          can't hold the goal. The "fast but weak" baseline.
         strategy: 'reflex' | 'naive' | 'vector_add'
         """
         from utils.mpc_utils import poses_to_diff, compute_new_pose
@@ -127,9 +154,10 @@ class SpikeWorker:
         if env_drift is not None:
             drift = torch.tensor(env_drift, device=self.device, dtype=pose.dtype).reshape(1, 1, 7)
         # exact, world-model-independent metric: xyz distance from the goal pose
-        goal_xyz = None
+        goal_xyz = goal_pose = None
         if pg_np is not None:
-            goal_xyz = torch.tensor(pg_np, device=self.device, dtype=pose.dtype).reshape(1, 1, 7)[..., :3]
+            goal_pose = torch.tensor(pg_np, device=self.device, dtype=pose.dtype).reshape(1, 1, 7)
+            goal_xyz = goal_pose[..., :3]
 
         def pose_err():
             return float(torch.linalg.norm(pose[..., :3] - goal_xyz).item()) if goal_xyz is not None else float("nan")
@@ -155,22 +183,25 @@ class SpikeWorker:
         poses = [pose.flatten().cpu().numpy()]
 
         for t in range(horizon):
-            # request a fresh chunk on schedule (planned from the TRUE state now)
+            # cloud replans a multi-step chunk from the TRUE state on schedule (arrives `delta` late)
             if strategy != "reflex" and t % cloud_period == 0:
                 chunk = self._cem_plan(z, pose, z_goal, cloud_samples, cloud_steps, rollout)
                 pending.append({"arrive": t + delta, "p0": pose.clone(), "chunk": chunk})
 
-            # a stale chunk arrives -> becomes the active plan, anchored per strategy
+            # a stale chunk arrives -> becomes the active plan (absolute targets), anchored per strategy
+            #   naive      : anchor the targets at the CURRENT (drifted) pose  -> carries the drift
+            #   vector_add : anchor at the retained SNAPSHOT pose              -> drift cancels
             for pc in [pc for pc in pending if pc["arrive"] == t]:
                 anchor = pose.clone() if strategy == "naive" else pc["p0"]
                 active, aidx = abs_targets(anchor, pc["chunk"]), 0
             pending = [pc for pc in pending if pc["arrive"] > t]
 
-            # act: track the active plan one target/tick; else reflex-bridge (also creates the drift)
+            # act: track the cloud's active plan one target/tick; otherwise the DISTILLED reflex bridges
+            # (before the first reply, between chunks, and for the whole reflex-only baseline)
             if strategy != "reflex" and active is not None and aidx < len(active):
                 a_apply = bounded_step_to(pose, active[aidx]); aidx += 1
             else:
-                a_apply = self._cem(z, pose, z_goal, reflex_samples, reflex_steps) * reflex_gain
+                a_apply = self.reflex_action(z, z_goal)   # one-shot reactive reflex (no lookahead)
 
             # the TRUE world also gets the unmodeled disturbance (planner/reconciler never see it)
             z, pose = self.env_step(z, pose, a_apply + drift)
@@ -194,6 +225,33 @@ class SpikeWorker:
                 cem_steps=cem_steps, topk=max(4, samples // 10),
                 momentum_mean=0.15, momentum_std=0.15, maxnorm=0.05, close_gripper=None,
             )
+
+    @torch.no_grad()
+    def cloud_mpc(self, z0_np, p0_np, zg_np, pg_np, *, samples, cem_steps, rollout,
+                  horizon=16, seed=0):
+        """Closed-loop cloud MPC: replan a rollout-chunk from the TRUE state, execute it, repeat.
+        Returns pose-error + energy trajectories — tests whether the cloud produces a USABLE answer
+        (drives pose error toward 0), and how that scales with search compute (samples x cem_steps)."""
+        torch.manual_seed(seed)
+        z = torch.tensor(z0_np, device=self.device)
+        pose = torch.tensor(p0_np, device=self.device)
+        z_goal = torch.tensor(zg_np, device=self.device)
+        goal_xyz = torch.tensor(pg_np, device=self.device, dtype=pose.dtype).reshape(1, 1, 7)[..., :3]
+
+        def pe():
+            return float(torch.linalg.norm(pose[..., :3] - goal_xyz).item())
+
+        perrs, energies = [pe()], [self._energy(z, z_goal)]
+        plan, pidx = None, 0
+        for t in range(horizon):
+            if plan is None or pidx >= plan.size(1):
+                plan = self._cem_plan(z, pose, z_goal, samples, cem_steps, rollout)  # replan from TRUE state
+                pidx = 0
+            z, pose = self.env_step(z, pose, plan[:, pidx:pidx + 1]); pidx += 1
+            perrs.append(pe()); energies.append(self._energy(z, z_goal))
+        return {"samples": samples, "cem_steps": cem_steps, "rollout": rollout,
+                "pose_err": perrs, "final_pose_err": perrs[-1],
+                "energy": energies, "final_energy": energies[-1]}
 
     # ---- diagnostics ------------------------------------------------------
     @torch.no_grad()

@@ -31,17 +31,17 @@ ax.add_patch(FancyBboxPatch((6.7, 0.4), 4.0, 4.5, boxstyle="round,pad=0.03,round
                             fc=CLOUD, ec=GREEN, lw=1.8))
 
 # edge inner
-box(0.6, 2.9, 3.4, 1.55, "white", BLUE, "Fast reflex",
-    ["one forward pass, ~ms", "steers to the destination"])
+box(0.6, 2.9, 3.4, 1.55, "white", BLUE, "Fast reflex  (distilled)",
+    ["one-shot policy, ~ms", "reactive — drifts on its own"])
 box(0.6, 0.55, 3.4, 2.05, "white", RED, "Reconciler  (the glue)",
     ["a_cloud = the cloud's planned action", "retain snapshot pose p0",
      "destination = p0 + a_cloud", "steer there from where I am now"])
 
 # cloud inner
 box(7.0, 2.45, 3.4, 2.0, "white", GREEN, "Ray Serve: slow brain",
-    ["V-JEPA 2-AC world model", "CEM search in latent space", "data-parallel across GPUs", "more GPUs -> faster -> smaller Δ"])
-box(7.0, 0.7, 3.4, 1.55, "white", GREEN, "World-model inference",
-    ["seconds per plan", "scale = num_replicas / shards"])
+    ["V-JEPA 2-AC world model", "multi-step CEM search (deliberative)", "sharded data-parallel across GPUs", "more GPUs -> faster -> smaller Δ"])
+box(7.0, 0.7, 3.4, 1.55, "white", GREEN, "Data-parallel plan",
+    ["~18 s on 1 GPU  ->  ~6 s on 3", "scale = shards / replicas"])
 
 # arrows
 ax.add_patch(FancyArrowPatch((4.35, 3.6), (6.65, 3.6), arrowstyle="-|>", mutation_scale=20,
