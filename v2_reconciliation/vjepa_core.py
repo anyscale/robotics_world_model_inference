@@ -25,7 +25,7 @@ def _ensure_repo_on_path():
 
 
 class WorldModelCore:
-    """Encode / roll-forward / CEM-plan / score, all in V-JEPA latent + 7-DoF pose space."""
+    """Encode / roll-forward / CEM-plan / score, all in V-JEPA latent + 7-D pose space."""
 
     def __init__(self, device="cuda"):
         _ensure_repo_on_path()

@@ -41,13 +41,7 @@ def _destination(anchor_pose, chunk):
     return dest
 
 
-def _step_toward(pose, dest):
-    """Bounded action that steers current pose toward the destination (the fast brain)."""
-    p = pose.reshape(7)
-    a = np.zeros(7, dtype=np.float32)
-    a[:3] = np.clip(dest[:3] - p[:3], -MAXNORM, MAXNORM)
-    a[6] = np.clip(dest[6] - p[6], -MAXNORM, MAXNORM)
-    return a.reshape(1, 1, 7)
+
 
 
 def run_episode(world, url, z_goal, *, strategy, control_hz=3.0, cloud_every_ticks=6,
