@@ -41,7 +41,7 @@ learned reflex must genuinely fail without it.** This is "Option B".
   val MSE 0.0020 vs predict-the-mean baseline 0.0134 (beats it 6.7×) — a real learned policy.
   Conditioned on the **latent** (not goal pose → no beelining cheat). Actions **clipped to maxnorm**.
   Closed-loop it approaches then DRIFTS (0.32→0.14→0.60) — reactive, can't hold. The "fast but weak" brain.
-- **Money chart (`old/p1_run.py`, 3 seeds × Δ∈{0,2,4,6,8}, cloud 128×6×2, cloud_period=2):**
+- **Money chart (`regen/p1_run.py`, 3 seeds × Δ∈{0,2,4,6,8}, cloud 128×6×2, cloud_period=2):**
   reflex flat **0.60**; naive **0.19–0.32** (drifts back toward reflex as Δ grows); vector-add **0.07–0.15**
   at Δ≥4. Overlap at Δ=0–2 (little staleness + one unlucky CEM seed). NOISY (stochastic under-resourced
   cloud) — **framed honestly as illustrative demo numbers, not a benchmark** (user directive: narrative +
@@ -58,7 +58,7 @@ learned reflex must genuinely fail without it.** This is "Option B".
 **REMAINING PLAN (Option A of the live-cloud decision — APPROVED):**
 1. **Serve the usable cloud (128×6×2) through the SHARDED planner (Lever 1)** in the Ray Serve deployment
    → ~4–5 s/plan across 4 GPUs → snappy live demo AND makes "cloud must be big to be usable → scale it
-   across GPUs" the central Anyscale beat. (`sharded_planner.py` exists in `old/`; wire into the Serve app.)
+   across GPUs" the central Anyscale beat. (`sharded_planner.py` now at top-level; served via `build_sharded_app` in `slow_brain_service.py`.)
 2. **Wire the distilled reflex into the live loop** (`robot_client.py`): kill the idle `np.zeros`; feed it
    the latent from the World snapshot (needs `world.step`/`snapshot` to return pooled-z or z). Use
    `reflex_policy.py` (numpy MLP) + `reflex_policy.npz`.
@@ -68,13 +68,11 @@ learned reflex must genuinely fail without it.** This is "Option B".
 4. **Re-validate** notebook end-to-end (`run_nb.py`).
 
 **ARTIFACTS on disk (untracked; regenerate if cluster wiped):**
-- `reflex_policy.npz` + `reflex_problem.npz` — distilled reflex weights + the problem. Regen: `python
-  distill_reflex.py` (needs the usable cloud; ~5 min mining + train + verify).
-- `images/p1_feasibility.png` + `images/p1_money_data.npz` — money chart + data. Regen chart: `python
-  plot_money.py`. Regen data: `python old/p1_run.py` (~21 min, 3 seeds).
+- `reflex_policy.npz` — distilled reflex weights. Regen: `python regen/distill_reflex.py` (needs the usable cloud; ~5 min mining + train + verify).
+- `images/p1_feasibility.png` + `images/p1_money_data.npz` — money chart + data. Regen chart: `python regen/plot_money.py`. Regen data: `python regen/p1_run.py` (~21 min, 3 seeds).
 - New scripts: `distill_reflex.py`, `reflex_policy.py`, `verify_reflex.py`, `cloud_quality.py`,
-  `find_hard_goal.py`, `plot_money.py`. Edited: `old/p1_world.py` (reflex + cloud_mpc + run_episode),
-  `old/p1_run.py` (config).
+  `find_hard_goal.py`, `plot_money.py`. Edited: `regen/p1_world.py` (reflex + cloud_mpc + run_episode),
+  `regen/p1_run.py` (config).
 
 **STATUS: money chart DONE. Step 1 (shard the served cloud) DONE ✅.**
 - `sharded_planner.py` moved back to top-level (it's core now). Added `ShardedSlowBrain` deployment +
@@ -98,7 +96,7 @@ learned reflex must genuinely fail without it.** This is "Option B".
 - **Notebook CODE cells rebuilt + END-TO-END VALIDATED ✅** (2026-07-01 PM): cell 4 py_modules +=
   sharded_planner/reflex_policy; serve cell → `build_sharded_app(3,128,6,2)`; reconciliation cell loads
   `ReflexPolicy`, `run_episode(reflex=..., control_hz=2.0, horizon=20)`, baseline 0.60. `python
-  old/run_nb.py` (NOT top-level — run_nb.py lives in old/) ran CLEAN in **94 s** (budget 600): serve
+  regen/run_nb.py` (NOT top-level — run_nb.py lives in regen/) ran CLEAN in **94 s** (budget 600): serve
   sharded 38 s, plan 6.2 s, live reconciliation 12 s (reflex drifts to 0.41, stale reply Δ=12/5.7 s
   reconciled → recovers), charts embedded. GPU budget live: 3 shards + World = 4.
 - Step 3 (narrative + diagram) DONE ✅: reframed §2 (usable cloud heavy → served sharded), §5 (reflex =
@@ -106,13 +104,13 @@ learned reflex must genuinely fail without it.** This is "Option B".
   0.60 baseline), §7 (sharding is what made it servable), and the serve/robot/shard under-the-hood cells.
   `architecture.png` regenerated (reflex "distilled/one-shot/reactive — drifts"; cloud "multi-step CEM
   deliberative / sharded"; "~18s on 1 GPU → ~6s on 3"). Prose edits preserved user wording where possible.
-- **STATUS: Option-B rebuild COMPLETE ✅ — final `python old/run_nb.py` ran CLEAN in 94 s (budget 600).**
-  Remaining optional polish: refresh `README.md` (old numbers 2.8s/0.477 → sharded 6s/reflex-0.60 story);
-  tidy new one-off diagnostics into `old/` (find_hard_goal, cloud_quality, verify_reflex, p2_live_test).
+- **STATUS: Option-B rebuild COMPLETE ✅ — final `python regen/run_nb.py` ran CLEAN in 94 s (budget 600).**
+  Polish DONE: `README.md` fully refreshed to the Option-B story (sharded serving, distilled reactive
+  reflex, corrected numbers, `regen/` file table); one-off diagnostics deleted; `old/`→`regen/`.
   Files: NEW `sharded_planner.py`, `reflex_policy.py`, `distill_reflex.py`, `verify_reflex.py`,
   `cloud_quality.py`, `plot_money.py`, `p2_sharded_serve_test.py`, `p2_live_test.py`; edited `world.py`
   (z_pool), `robot_client.py` (reflex + restored _step_toward), `slow_brain_service.py` (ShardedSlowBrain),
-  `old/p1_world.py` + `old/p1_run.py`; artifacts `reflex_policy.npz`, `reflex_problem.npz`,
+  `regen/p1_world.py` + `regen/p1_run.py`; artifacts `reflex_policy.npz`, `reflex_problem.npz`,
   `images/p1_feasibility.png` (single panel), `images/p1_money_data.npz`.
 
 ---
@@ -521,3 +519,25 @@ take longer — they are batch artifacts, not the notebook.) Strategy to stay un
   Notebook = `world_model_reconciliation.ipynb`; build via `python build_notebook.py`, execute via
   `python run_nb.py` (NOT nbconvert — broken here).
   - **Status: NOTEBOOK DONE & VALIDATED. Remaining = P5: README refresh + optional arch diagram + final prose.**
+
+---
+
+## 🗂️ FILE LAYOUT & RECOVERY (2026-07-01 PM — post-cleanup, CURRENT)
+
+Repo tidied: deleted one-off diagnostics/tests (find_hard_goal, cloud_quality, verify_reflex,
+p2_sharded_serve_test, p2_live_test, reflex_problem.npz) and the stale `build_notebook.py` footgun
+(notebook is now hand-edited directly — NEVER regenerate it from a script). Renamed `old/` → `regen/`
+and moved the generators there.
+
+**Top-level = what RUNS the notebook** (+ docs): `world_model_reconciliation.ipynb`, `vjepa_core.py`,
+`slow_brain_service.py`, `sharded_planner.py`, `world.py`, `robot_client.py`, `reflex_policy.py`,
+`reflex_policy.npz`, `README.md`, `PLAN.md`, `images/`.
+
+**`regen/` = regenerate the assets** (not needed to run): `distill_reflex.py` → `reflex_policy.npz`;
+`plot_money.py` → `images/p1_feasibility.png` (from `images/p1_money_data.npz`); `make_architecture.py`
+→ `images/architecture.png`; `p1_run.py` + `p1_world.py` → money-chart data; `p2_shard_test.py` →
+`images/p2_shard_scaling.png`; `run_nb.py` → execute the notebook headless.
+
+**Recovery if cluster wiped:** re-fetch V-JEPA weights (see §0); `python regen/distill_reflex.py`
+(~5 min) → `reflex_policy.npz`; charts already saved in `images/` (or `python regen/plot_money.py`,
+`python regen/make_architecture.py`); run the notebook via `python regen/run_nb.py`.

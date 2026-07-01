@@ -30,7 +30,7 @@ ENV_DRIFT = [0.0, 0.02, 0.0, 0.0, 0.0, 0.0, 0.0]  # exogenous off-axis push (+y)
 
 def main():
     ray.init(address="auto", logging_level="ERROR", runtime_env={
-        "py_modules": [f"{REPO_DIR}/old/p1_world.py"],
+        "py_modules": [f"{REPO_DIR}/regen/p1_world.py"],
         "env_vars": {"TORCH_HOME": TORCH_HOME, "HF_HOME": "/mnt/cluster_storage/hf_cache",
                      "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"},
     })
