@@ -39,7 +39,8 @@ If the cluster restarts, all agent memory is gone. This file plus `results/` is 
 ## Code layout (this dir)
 | Path | What |
 |---|---|
-| `jepa_rt/__init__.py` | `RUNTIME_ENV` (pip timm, py_modules, TORCH_HOME) |
+| `Dockerfile` | Custom Anyscale image for a fresh cluster: FROM anyscale/ray:2.58.0-py312-cu128, torch 2.10 cu128, timm etc., V-JEPA 2 code pinned at /opt/vjepa2 (`VJEPA2_REPO_DIR`). Not test-built (no docker here; all pinned versions verified to exist on PyPI / the PyTorch index). |
+| `jepa_rt/__init__.py` | Paths (`TORCH_HOME`, `VJEPA2_REPO_DIR`, `EXAMPLE_TRAJ`), `RUNTIME_ENV` (adds pip timm only if the image lacks it), `ensure_assets()` (fetch the pinned code if missing + the checkpoint once) |
 | `jepa_rt/model.py` | `WorldModelCore`: load, `encode(frame)`, `score(z, pose, z_goal, actions[S,H,7]) -> energy[S]`. `fast=True` = bf16 + KV cache across rollout steps + flash SDPA + GPU pose update; `fast=False` = reference math |
 | `jepa_rt/cem.py` | `CEMDistribution`: sample / refit / plan / shift (warm start); matches Meta's `mpc_utils.cem` rules |
 | `jepa_rt/serve_app.py` | Ray Serve app: `WorldModel` (GPU tier, round-robin router, compile re-enabled) + `Planner` (CEM fan-out, stateless warm start). `build_app(n_gpus)` |
@@ -85,6 +86,7 @@ If the cluster restarts, all agent memory is gone. This file plus `results/` is 
 
 ## Log
 - 2026-11-03 13:52 UTC: setup done; baseline + fast-path check (results/01_single_gpu_baseline.json).
+- 2026-11-03 15:40 UTC: added Dockerfile + `ensure_assets()`; the model now loads from the local pinned V-JEPA 2 repo. Notebook re-executed clean with identical numbers.
 - 2026-11-03 15:05 UTC: notebook executed clean (exit 0), README, docx copy written. No Serve apps running; base env untouched (requirements.txt = reportlab, pypdfium2; `import timm` fails in base python as intended).
 - 2026-11-03 14:45 UTC: scaling, closed-loop, non-blocking done + figures. Next: notebook, README, docx copy.
 - 2026-11-03 14:10 UTC: Serve app works, 2.87 s/plan on 8 GPUs. Scaling sweep running (results/03_scaling.log/json); next: closed-loop warm start.

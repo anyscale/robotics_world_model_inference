@@ -10,7 +10,7 @@ from ray import serve
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-from jepa_rt import RUNTIME_ENV, TORCH_HOME  # noqa: E402
+from jepa_rt import EXAMPLE_TRAJ, RUNTIME_ENV, ensure_assets  # noqa: E402
 from jepa_rt.serve_app import build_app  # noqa: E402
 
 ap = argparse.ArgumentParser()
@@ -19,9 +19,10 @@ ap.add_argument("--plans", type=int, default=5)
 ap.add_argument("--out", default=os.path.join(ROOT, "results/03_scaling.json"))
 args = ap.parse_args()
 
-traj = np.load(os.path.join(TORCH_HOME, "hub/facebookresearch_vjepa2_main/notebooks/franka_example_traj.npz"))
+traj = np.load(EXAMPLE_TRAJ)
 frame, goal, pose = traj["observations"][0][0], traj["observations"][0][-1], traj["states"][0][0]
 
+ensure_assets()
 ray.init(address="auto", runtime_env=RUNTIME_ENV, logging_level="ERROR", log_to_driver=False)
 results = json.load(open(args.out)) if os.path.exists(args.out) else {}
 for W in args.gpus:

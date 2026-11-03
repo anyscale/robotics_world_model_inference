@@ -42,7 +42,7 @@ All the code lives in a small package, `jepa_rt/`, which every worker receives t
 | `jepa_rt/cem.py` | The Cross-Entropy Method: `sample`, `refit`, `plan`. Same rules as Meta's reference. |
 | `jepa_rt/serve_app.py` | The two Ray Serve deployments: `WorldModel` (GPU tier) and `Planner` (driver + HTTP endpoint). |
 
-The driver (this notebook) never loads the model. Only GPU replicas do. `runtime_env={"pip": ["timm"]}` installs the one package V-JEPA 2 needs beyond the base image into a per-job virtual environment, so the cluster image is never modified. The 11.7 GB checkpoint lives on shared cluster storage (`TORCH_HOME`): it is downloaded once and read by every GPU.
+The driver (this notebook) never loads the model. Only GPU replicas do. On a cluster built from this repo's `Dockerfile`, everything is already installed, including a pinned copy of Meta's V-JEPA 2 code. On a stock Ray image, `runtime_env={"pip": ["timm"]}` installs the one missing package into a per-job virtual environment instead, so the cluster image is never modified. The 11.7 GB checkpoint lives on shared cluster storage (`TORCH_HOME`): `ensure_assets()` downloads it once, and every GPU reads that copy.
 """)
 
 code(r"""
@@ -57,8 +57,10 @@ from IPython.display import Image, display
 
 REPO = os.path.abspath(".")                      # run from v3_realtime_inference_for_jepa/
 sys.path.insert(0, REPO)
-from jepa_rt import RUNTIME_ENV, TORCH_HOME
+from jepa_rt import EXAMPLE_TRAJ, RUNTIME_ENV, ensure_assets
 from jepa_rt.serve_app import build_app
+
+ensure_assets()                              # one-time downloads to shared storage (~12 GB); instant afterwards
 
 logging.getLogger("ray.serve").setLevel(logging.ERROR)
 ray.init(address="auto", runtime_env=RUNTIME_ENV, logging_level="ERROR", log_to_driver=False)
@@ -176,7 +178,7 @@ The robot side is a plain HTTP client. It sends a camera frame, its 7-D end-effe
 """)
 
 code(r"""
-traj = np.load(f"{TORCH_HOME}/hub/facebookresearch_vjepa2_main/notebooks/franka_example_traj.npz")
+traj = np.load(EXAMPLE_TRAJ)                      # Meta's example Franka trajectory, shipped with V-JEPA 2
 frame, goal_frame, pose = traj["observations"][0][0], traj["observations"][0][-1], traj["states"][0][0]
 
 def robot_request(frame, pose, goal_frame, warm=None, rounds=None):

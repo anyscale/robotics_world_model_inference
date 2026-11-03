@@ -14,7 +14,7 @@ from ray import serve
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-from jepa_rt import RUNTIME_ENV, TORCH_HOME  # noqa: E402
+from jepa_rt import EXAMPLE_TRAJ, RUNTIME_ENV, ensure_assets  # noqa: E402
 from jepa_rt.serve_app import build_app  # noqa: E402
 
 ap = argparse.ArgumentParser()
@@ -27,7 +27,8 @@ ap.add_argument("--strategies", nargs="+", default=["cold10", "warm3", "warm2", 
 ap.add_argument("--out", default=os.path.join(ROOT, "results/04_closed_loop.json"))
 args = ap.parse_args()
 
-traj = np.load(os.path.join(TORCH_HOME, "hub/facebookresearch_vjepa2_main/notebooks/franka_example_traj.npz"))
+traj = np.load(EXAMPLE_TRAJ)
+ensure_assets()
 ray.init(address="auto", runtime_env=RUNTIME_ENV, logging_level="ERROR", log_to_driver=False)
 serve.run(build_app(n_gpus=args.gpus), name="jepa_planner", route_prefix="/jepa")
 planner = serve.get_app_handle("jepa_planner")

@@ -11,7 +11,7 @@ import numpy as np
 import ray
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from jepa_rt import RUNTIME_ENV  # noqa: E402
+from jepa_rt import RUNTIME_ENV, ensure_assets  # noqa: E402
 
 
 @ray.remote(num_gpus=1)
@@ -22,7 +22,8 @@ def run():
     t0 = time.time()
     core = WorldModelCore()
     out = {"load_s": time.time() - t0, "gpu": torch.cuda.get_device_name()}
-    traj = np.load(os.path.join(os.environ["TORCH_HOME"], "hub/facebookresearch_vjepa2_main/notebooks/franka_example_traj.npz"))
+    from jepa_rt import EXAMPLE_TRAJ
+    traj = np.load(EXAMPLE_TRAJ)
     obs, states = traj["observations"][0], traj["states"][0]
     z, zg = core.encode(obs[0]), core.encode(obs[-1])
     pose = states[0]
@@ -74,5 +75,6 @@ def run():
 
 
 if __name__ == "__main__":
+    ensure_assets()
     ray.init(address="auto", runtime_env=RUNTIME_ENV, logging_level="ERROR")
     print(json.dumps(ray.get(run.remote()), indent=1))

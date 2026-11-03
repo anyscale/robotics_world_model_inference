@@ -22,16 +22,18 @@ CEM settings throughout: 800 candidates × 10 rounds, keep 80, horizon 2. Every 
 
 **Start here:** `realtime_jepa_planning.ipynb`. It deploys the service on 8 GPUs, calls it over HTTP as a robot would, and runs a live non-blocking control episode. Execution takes about 4 minutes, plus a one-time ~12 GB download.
 
-Requirements:
-- A Ray cluster with 8 GPUs (≥ 40 GB each).
-- Ray ≥ 2.58 with Serve.
-- PyTorch ≥ 2.4.
+**On a new Anyscale cluster:** build the `Dockerfile` in this directory as a custom image and start a workspace on it with 8 GPUs (≥ 40 GB each). Then open the notebook and run it.
 
-The only extra package, `timm`, is installed per job through Ray's `runtime_env` (see `jepa_rt/__init__.py`). Set `TORCH_HOME` to shared storage so all GPUs read one copy of the checkpoint.
+- The image pins everything we measured with: Ray 2.58, Python 3.12, CUDA 12.8, torch 2.10, timm, and Meta's V-JEPA 2 code at a fixed commit.
+- The notebook's first cell calls `jepa_rt.ensure_assets()`. It downloads the 11.7 GB checkpoint once to shared storage (`/mnt/cluster_storage`), where all GPUs read it.
+- Fewer GPUs also work: use `build_app(n_gpus=...)` to match.
+
+**Without the custom image:** a stock `anyscale/ray` image with torch also works. `ensure_assets()` then fetches the pinned V-JEPA 2 code to shared storage, and Ray's `runtime_env` installs `timm` into a per-job virtualenv (see `jepa_rt/__init__.py`).
 
 | Path | What |
 |---|---|
 | `realtime_jepa_planning.ipynb` | The walkthrough. |
+| `Dockerfile` | Custom cluster image: pinned Ray / torch / timm + V-JEPA 2 code. |
 | `jepa_rt/model.py` | V-JEPA 2-AC core (no Ray): `encode(frame)`, `score(candidates) -> energy`, `rollout`. Contains the fast path: KV cache across rollout steps, bf16, flash attention, `torch.compile`. |
 | `jepa_rt/cem.py` | CEM as `sample` / `refit` / `plan` / `shift`, with the same rules as Meta's reference `cem()`. |
 | `jepa_rt/serve_app.py` | The two Ray Serve deployments: `WorldModel` (GPU tier) and `Planner` (CEM driver, HTTP `/plan`). Scale with `build_app(n_gpus=W)`. |
@@ -41,6 +43,8 @@ The only extra package, `timm`, is installed per job through Ray's `runtime_env`
 | `scripts/bench_closed_loop.py` | Closed-loop episodes: 10 vs 3 rounds, cold vs warm-started. |
 | `scripts/bench_nonblocking.py` | Blocking vs non-blocking control, in wall-clock time. |
 | `scripts/make_figures.py` | `images/*.png` from `results/*.json`. |
+| `scripts/build_notebook.py` | Regenerates the notebook (without outputs). |
+| `scripts/update_blog_docx.py` | Writes measured results into a copy of the blog draft. |
 
 ## Lessons worth knowing
 

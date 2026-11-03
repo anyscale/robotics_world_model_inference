@@ -26,25 +26,23 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-# Where torch.hub keeps the V-JEPA 2 code and the 11.7 GB checkpoint. On Anyscale, point this at shared cluster
-# storage so every GPU worker reads the same copy (it is downloaded once, on first use).
-TORCH_HOME = os.environ.setdefault("TORCH_HOME", "/mnt/cluster_storage/jepa_rt/torch_hub")
-HUB_REPO = "facebookresearch/vjepa2"
-CHECKPOINT_URL = "https://dl.fbaipublicfiles.com/vjepa2/vjepa2-ac-vitg.pt"
+from jepa_rt import CHECKPOINT_URL, TORCH_HOME, VJEPA2_REPO_DIR
+
+os.environ.setdefault("TORCH_HOME", TORCH_HOME)   # torch.hub caches the checkpoint under TORCH_HOME/hub/checkpoints
 CROP = 256           # input resolution of the action-conditioned model
-GRIPPER_LIMIT = 0.75  # Meta's CEM clips the sampled gripper delta to +-0.75
-
-
-def _hub_dir():
-    return os.path.join(torch.hub.get_dir(), "facebookresearch_vjepa2_main")
 
 
 def load_vjepa2_ac(device="cuda"):
     """Encoder (ViT-g, 1.0B params) + action-conditioned predictor (0.3B params), eval mode, fp32 weights."""
-    # The hub entry point's built-in checkpoint URL points at localhost in the current upstream repo, so build the
-    # architecture with pretrained=False and load the published checkpoint ourselves (cached under TORCH_HOME).
-    encoder, predictor = torch.hub.load(HUB_REPO, "vjepa2_ac_vit_giant", pretrained=False, trust_repo=True,
-                                        verbose=False)
+    # Use the local V-JEPA 2 checkout (baked into the image by the Dockerfile, or left in TORCH_HOME by an earlier
+    # torch.hub download); otherwise fetch it from GitHub. Upstream's hub entry point points its checkpoint URL at
+    # localhost, so build the architecture with pretrained=False and load the published checkpoint ourselves.
+    if os.path.isdir(VJEPA2_REPO_DIR):
+        encoder, predictor = torch.hub.load(VJEPA2_REPO_DIR, "vjepa2_ac_vit_giant", source="local",
+                                            pretrained=False)
+    else:
+        encoder, predictor = torch.hub.load("facebookresearch/vjepa2", "vjepa2_ac_vit_giant", pretrained=False,
+                                            trust_repo=True, verbose=False)
     sd = torch.hub.load_state_dict_from_url(CHECKPOINT_URL, map_location="cpu", progress=False)
 
     def clean(d):
@@ -53,9 +51,11 @@ def load_vjepa2_ac(device="cuda"):
     encoder.load_state_dict(clean(sd["encoder"]), strict=False)   # strict=False as upstream (unused heads)
     predictor.load_state_dict(clean(sd["predictor"]), strict=True)
     del sd
-    if _hub_dir() not in sys.path:   # Meta's transforms / mpc_utils live in the hub repo
-        sys.path.insert(0, _hub_dir())
-        sys.path.insert(0, os.path.join(_hub_dir(), "notebooks"))
+    repo = VJEPA2_REPO_DIR if os.path.isdir(VJEPA2_REPO_DIR) else os.path.join(torch.hub.get_dir(),
+                                                                                "facebookresearch_vjepa2_main")
+    for path in (repo, os.path.join(repo, "notebooks")):   # Meta's transforms / mpc_utils live in the repo
+        if path not in sys.path:
+            sys.path.insert(0, path)
     return encoder.to(device).eval(), predictor.to(device).eval()
 
 

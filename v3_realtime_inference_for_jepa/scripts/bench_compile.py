@@ -3,7 +3,7 @@ import json, os, sys, time
 import numpy as np
 import ray
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from jepa_rt import RUNTIME_ENV  # noqa: E402
+from jepa_rt import RUNTIME_ENV, ensure_assets  # noqa: E402
 
 
 @ray.remote(num_gpus=1)
@@ -12,7 +12,8 @@ def run():
     from jepa_rt.model import WorldModelCore
     from jepa_rt.cem import CEMDistribution
     core = WorldModelCore()
-    traj = np.load(os.path.join(os.environ["TORCH_HOME"], "hub/facebookresearch_vjepa2_main/notebooks/franka_example_traj.npz"))
+    from jepa_rt import EXAMPLE_TRAJ
+    traj = np.load(EXAMPLE_TRAJ)
     z, zg, pose = core.encode(traj["observations"][0][0]), core.encode(traj["observations"][0][-1]), traj["states"][0][0]
     out = {}
 
@@ -33,5 +34,6 @@ def run():
 
 
 if __name__ == "__main__":
+    ensure_assets()
     ray.init(address="auto", runtime_env=RUNTIME_ENV, logging_level="ERROR")
     print(json.dumps(ray.get(run.remote(), timeout=1500), indent=1))
