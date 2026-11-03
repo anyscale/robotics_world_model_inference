@@ -109,14 +109,17 @@ class Planner:
             self._goals[key] = await self.wm.encode.remote(goal_frame)
         return self._goals[key]
 
-    async def plan(self, frame, pose, goal_frame, warm=None, rounds=None, samples=None, seed=None, z=None, z_goal=None):
+    async def plan(self, frame, pose, goal_frame, warm=None, rounds=None, samples=None, seed=None, z=None, z_goal=None,
+                   detail=False):
         """One control step: encode, run CEM with each round fanned out over the GPU tier, return the action.
 
         warm:   the `warm` dict from this robot's previous reply -> warm-started search (shifted previous plan).
         rounds: CEM rounds for this call (default: the deployment's; warm-started calls typically need fewer).
         z, z_goal: already-encoded latents, instead of frame / goal_frame (simulated episodes).
+        detail: also return every round's candidates (imagined end positions), energies and per-GPU timing
+                (for visualizing the search; off by default).
         """
-        t0 = time.perf_counter()
+        t0 = time.perf_counter(); t0_wall = time.time()
         rounds, samples = rounds or self.rounds, samples or self.samples
         if z is None or z_goal is None:
             z, z_goal = await asyncio.gather(self.wm.encode.remote(frame), self._goal_latent(goal_frame))
@@ -127,7 +130,7 @@ class Planner:
         if warm is not None:                            # start from the previous plan, shifted by one step
             dist.mean, dist.std = np.array(warm["mean"], np.float32), np.array(warm["std"], np.float32)
             dist.shift(std_reset=warm.get("std_reset"))
-        round_ms, gpu_ms, elite, trace = [], [], [], []
+        round_ms, gpu_ms, elite, trace, rounds_detail = [], [], [], [], []
         for _ in range(rounds):                         # sequential: each round refits on the last one's winners
             tr = time.perf_counter(); tr_wall = time.time()
             cands = dist.sample(samples)
@@ -140,11 +143,18 @@ class Planner:
             gpu_ms.append(max(m["gpu_ms"] for _, m in results))
             trace.append([(m["replica"][-6:], round((m["t_recv"] - tr_wall) * 1e3), round((m["t_done"] - tr_wall) * 1e3),
                            round(m["gpu_ms"])) for _, m in results])
+            if detail:   # times in ms from the start of this plan call; end xyz = pose + summed xyz deltas
+                end_xyz = np.asarray(pose, np.float32)[:3] + cands[:, :, :3].sum(1)
+                rounds_detail.append({
+                    "t_start_ms": (tr - t0) * 1e3, "t_end_ms": (time.perf_counter() - t0) * 1e3,
+                    "cand_end_xyz": end_xyz.astype(np.float32), "energy": energy.astype(np.float32),
+                    "shards_ms": [((m["t_recv"] - t0_wall) * 1e3, (m["t_done"] - t0_wall) * 1e3) for _, m in results]})
         return {
             "action": dist.action(), "plan": dist.plan(),
             "warm": {"mean": dist.mean.copy(), "std": dist.std.copy()}, "elite_energy": elite, "trace": trace,
             "timing_ms": {"total": (time.perf_counter() - t0) * 1e3, "encode": (t_enc - t0) * 1e3,
                           "rounds": round_ms, "gpu": gpu_ms},
+            **({"rounds_detail": rounds_detail} if detail else {}),
         }
 
     # HTTP endpoint for the robot: body = .npz with frame, pose, goal_frame (+ optional warm_mean, warm_std).

@@ -44,6 +44,7 @@ If the cluster restarts, all agent memory is gone. This file plus `results/` is 
 | `jepa_rt/model.py` | `WorldModelCore`: load, `encode(frame)`, `score(z, pose, z_goal, actions[S,H,7]) -> energy[S]`. `fast=True` = bf16 + KV cache across rollout steps + flash SDPA + GPU pose update; `fast=False` = reference math |
 | `jepa_rt/cem.py` | `CEMDistribution`: sample / refit / plan / shift (warm start); matches Meta's `mpc_utils.cem` rules |
 | `jepa_rt/serve_app.py` | Ray Serve app: `WorldModel` (GPU tier, round-robin router, compile re-enabled) + `Planner` (CEM fan-out, stateless warm start). `build_app(n_gpus)` |
+| `video/` | Blog video. `capture_trace.py` (GPU, ~3 min: one blocking + one non-blocking episode with per-round detail → `trace.json`), `render_video.py` (CPU, ~2.5 min → `realtime_jepa_planning.mp4`, 1920×1080, 32 s). Copy in `/home/ray/default/Ian_review/jepa_realtime/`. |
 | `scripts/check_fast_path.py` | 1 GPU: fast vs reference check + Meta's unmodified CEM timing |
 | `scripts/bench_compile.py` | 1 GPU: torch.compile speedup |
 | `scripts/bench_scaling.py` | Serve app at 8/4/2/1 GPUs -> results/03_scaling.json |
@@ -86,6 +87,7 @@ If the cluster restarts, all agent memory is gone. This file plus `results/` is 
 
 ## Log
 - 2026-11-03 13:52 UTC: setup done; baseline + fast-path check (results/01_single_gpu_baseline.json).
+- 2026-11-03 16:30 UTC: notebook declared done by Ian. Added video/ (capture + render). `Planner.plan(detail=True)` is an opt-in trace (default path unchanged).
 - 2026-11-03 15:40 UTC: added Dockerfile + `ensure_assets()`; the model now loads from the local pinned V-JEPA 2 repo. Notebook re-executed clean with identical numbers.
 - 2026-11-03 15:05 UTC: notebook executed clean (exit 0), README, docx copy written. No Serve apps running; base env untouched (requirements.txt = reportlab, pypdfium2; `import timm` fails in base python as intended).
 - 2026-11-03 14:45 UTC: scaling, closed-loop, non-blocking done + figures. Next: notebook, README, docx copy.

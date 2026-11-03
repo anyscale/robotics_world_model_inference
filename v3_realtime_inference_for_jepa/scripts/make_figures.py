@@ -75,7 +75,7 @@ for strat, c, lab in (("cold10", GRAY, "10 rounds per step (paper)"), ("cold3", 
         t = np.concatenate([[0], np.cumsum(np.array(v["plan_ms"]) / 1e3)])
         ax.plot(t, v["dist_cm"], "-o", color=c, ms=3, lw=1.6, alpha=0.9, label=lab if i == 0 else None)
 ax.set_xlabel("planning time (s), robot motion excluded"); ax.set_ylabel("end-effector distance to goal (cm)")
-ax.set_title("3 CEM rounds per step: same accuracy as 10, 3.3x faster", loc="left", fontsize=11, color=INK, fontweight="bold")
+ax.set_title("3 CEM rounds per step:\nsame accuracy as 10, 3.3x faster", loc="left", fontsize=11, color=INK, fontweight="bold")
 ax.legend(frameon=False, fontsize=9)
 ax = axs[1]
 for mode, c, lab in (("blocking", GRAY, "blocking: plan, then move"), ("nonblocking", BLUE, "non-blocking: plan while moving")):
@@ -83,7 +83,7 @@ for mode, c, lab in (("blocking", GRAY, "blocking: plan, then move"), ("nonblock
         t, d = zip(*v)
         ax.plot(t, d, "-o", color=c, ms=3, lw=1.6, alpha=0.9, label=lab if i == 0 else None)
 ax.set_xlabel(f"wall-clock time (s), robot takes {exec_s:.0f} s per action")
-ax.set_title("Non-blocking: the robot never waits for the planner", loc="left", fontsize=11, color=INK, fontweight="bold")
+ax.set_title("Non-blocking control:\nthe robot never waits for the planner", loc="left", fontsize=11, color=INK, fontweight="bold")
 ax.legend(frameon=False, fontsize=9)
 fig.savefig(os.path.join(OUT, "closed_loop.png")); plt.close(fig)
 print("wrote", sorted(os.listdir(OUT)))
@@ -111,7 +111,7 @@ box(27, 16, 22, 14, "Planner", "Ray Serve deployment\nCEM rounds, fan-out,\nHTTP
 arrow(17.8, 25, 26.2, 25, "POST /plan")
 arrow(26.2, 20, 17.8, 20, "action")
 ax.add_patch(FancyBboxPatch((58, 2), 40, 42, boxstyle="round,pad=0.4,rounding_size=1.5", fc="#fbfcfd", ec=GRID, lw=1.2))
-ax.text(78, 41.5, "WorldModel deployment · num_replicas = W", ha="center", color=INK, fontsize=9.5, fontweight="bold")
+ax.text(78, 41.5, "WorldModel deployment · num_replicas = W", ha="center", color=INK, fontsize=8.5, fontweight="bold")
 for i in range(8):
     yy = 35 - i * 4.2
     box(62, yy, 32, 2.6, f"replica {i + 1}  ·  1 A100  ·  model resident", None, "#eaf6f4", TEAL, fs=8.5, weight="normal")

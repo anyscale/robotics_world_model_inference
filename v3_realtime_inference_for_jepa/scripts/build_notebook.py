@@ -316,6 +316,23 @@ await nonblocking_episode()
 """)
 
 md(r"""
+### Watch it: blocking vs. non-blocking, recorded live
+
+The video below replays one live run of each controller on this service: same task, same seed, same 8 GPUs. It runs in real time, and every timestamp, candidate and position in it was logged during the run (`video/capture_trace.py`; rendered with `video/render_video.py`).
+
+- **Left, top-down view of the gripper:** it moves from the start toward the goal. While the planner works, each dot is one of the 800 candidate action sequences in the current CEM round, drawn where the world model predicts it would leave the gripper. **Gray** dots are discarded. **Blue** dots are the 80 that land closest to the goal, which the planner refits to for the next round. Watch the cloud tighten from round to round.
+- **Right, top:** distance to goal over time.
+- **Right, bottom:** the timeline. The **robot** lane is green while moving and gray while waiting. The **planner** lane shows one block per CEM round. Below them, one row per **GPU** shows its shard of each round. All 8 light up together every ~280 ms: that is the Ray Serve fan-out.
+
+In the blocking row, the robot and the planner take turns, and the arm sits idle during every plan. In the non-blocking row, planning happens underneath the motion: the robot lane is solid green, and the same 12 moves finish in **15.3 s instead of 25.4 s**. As in section 5, the world model stands in for the robot (there is no physical arm).
+""")
+
+code(r"""
+from IPython.display import Video
+Video("video/realtime_jepa_planning.mp4", embed=True, width=960)
+""")
+
+md(r"""
 ## 7. What this means at the scale in the blog
 
 All the numbers above are measured on one node of 8× A100-40GB. The blog sizes the problem for **32× H100** (four 8-GPU nodes). We didn't run that, so the following is a **projection**, using the blog's own latency model calibrated to our measurements. Two inputs:

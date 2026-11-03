@@ -43,6 +43,7 @@ CEM settings throughout: 800 candidates × 10 rounds, keep 80, horizon 2. Every 
 | `scripts/bench_closed_loop.py` | Closed-loop episodes: 10 vs 3 rounds, cold vs warm-started. |
 | `scripts/bench_nonblocking.py` | Blocking vs non-blocking control, in wall-clock time. |
 | `scripts/make_figures.py` | `images/*.png` from `results/*.json`. |
+| `video/` | Blog video: `capture_trace.py` records a live blocking and non-blocking episode (8 GPUs, ~3 min); `render_video.py` renders `realtime_jepa_planning.mp4` from that trace (CPU only). |
 | `scripts/build_notebook.py` | Regenerates the notebook (without outputs). |
 | `scripts/update_blog_docx.py` | Writes measured results into a copy of the blog draft. |
 
