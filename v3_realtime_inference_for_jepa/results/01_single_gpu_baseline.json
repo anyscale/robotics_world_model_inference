@@ -1,0 +1,14 @@
+{
+ "date": "2026-11-03",
+ "script": "scripts/check_fast_path.py",
+ "gpu": "NVIDIA A100-SXM4-40GB (1 GPU)",
+ "settings": "CEM 800 samples x 10 rounds, keep 80, horizon 2, maxnorm 0.05, momentum 0.15/0.15; franka_example_traj.npz first->last frame",
+ "model_load_s": 30.1,
+ "reference_cem_fp32_s_per_action": [82.08, 81.83, 81.82],
+ "reference_cem_peak_mem_gb": 34.6,
+ "fast_vs_reference_score_check_128_candidates": {"max_abs_diff": 0.00044, "energy_range": [0.4498, 0.4902], "pearson": 0.99989, "top13_overlap": 0.923},
+ "fast_score_one_round_800_s": {"chunk400": 2.79, "chunk200": 2.84},
+ "fast_score_one_round_800_mem_gb": {"chunk400": 31.3, "chunk200": 18.6},
+ "fast_score_100_candidates_s": 0.372,
+ "notes": "fast = bf16 + KV cache across rollout steps + flash SDPA + GPU pose update. 10 rounds x 2.8 s ~ 28 s/action on 1 GPU (2.9x over reference)."
+}

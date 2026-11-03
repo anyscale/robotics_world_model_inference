@@ -1,0 +1,17 @@
+INFO 2026-11-03 14:17:38,000 serve 1392744 -- Connecting to existing Serve app in namespace "serve". New http_options/controller_options will not be applied.
+INFO 2026-11-03 14:18:26,221 serve 1392744 -- Application 'jepa_planner' is ready at http://0.0.0.0:8000/jepa.
+INFO 2026-11-03 14:18:26,229 serve 1392744 -- Started <ray.serve._private.router.SharedRouterLongPollClient object at 0x75a41220a600>.
+goal is 21.6 cm away
+cold10 seed 0: dist 21.6 -> 3.6 cm (min 2.4), plan ms median 2815
+cold10 seed 1: dist 21.6 -> 4.4 cm (min 2.9), plan ms median 2831
+cold10 seed 2: dist 21.6 -> 4.4 cm (min 2.9), plan ms median 2834
+warm3 seed 0: dist 21.6 -> 4.1 cm (min 3.0), plan ms median 854
+warm3 seed 1: dist 21.6 -> 3.8 cm (min 3.2), plan ms median 855
+warm3 seed 2: dist 21.6 -> 4.1 cm (min 2.8), plan ms median 855
+warm2 seed 0: dist 21.6 -> 4.3 cm (min 3.3), plan ms median 570
+warm2 seed 1: dist 21.6 -> 4.2 cm (min 3.0), plan ms median 571
+warm2 seed 2: dist 21.6 -> 3.7 cm (min 2.8), plan ms median 571
+cold3 seed 0: dist 21.6 -> 4.3 cm (min 3.3), plan ms median 855
+cold3 seed 1: dist 21.6 -> 4.7 cm (min 3.2), plan ms median 854
+cold3 seed 2: dist 21.6 -> 3.8 cm (min 3.1), plan ms median 854
+INFO 2026-11-03 14:22:50,333 serve 1392744 -- Deleting app ['jepa_planner']

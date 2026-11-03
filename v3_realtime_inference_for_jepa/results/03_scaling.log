@@ -1,0 +1,17 @@
+INFO 2026-11-03 14:09:48,741 serve 1384353 -- Connecting to existing Serve app in namespace "serve". New http_options/controller_options will not be applied.
+INFO 2026-11-03 14:10:38,978 serve 1384353 -- Application 'jepa_planner' is ready at http://0.0.0.0:8000/jepa.
+INFO 2026-11-03 14:10:38,985 serve 1384353 -- Started <ray.serve._private.router.SharedRouterLongPollClient object at 0x7a477a3bd940>.
+8 GPUs: {'deploy_s': 50.28056597709656, 'plan_ms_median': 2863.124827010324, 'encode_ms_median': 53.66081901593134, 'round_ms_median': 280.79614898888394, 'gpu_ms_median': 274.1574274987215, 'final_elite_energy': [0.4485258162021637, 0.4485609531402588, 0.44851213693618774, 0.44854220747947693, 0.44854679703712463]}
+INFO 2026-11-03 14:10:56,361 serve 1384353 -- Deleting app ['jepa_planner']
+INFO 2026-11-03 14:10:59,402 serve 1384353 -- Connecting to existing Serve app in namespace "serve". New http_options/controller_options will not be applied.
+INFO 2026-11-03 14:12:04,663 serve 1384353 -- Application 'jepa_planner' is ready at http://0.0.0.0:8000/jepa.
+4 GPUs: {'deploy_s': 65.29160356521606, 'plan_ms_median': 5526.056142989546, 'encode_ms_median': 52.44071001652628, 'round_ms_median': 547.62729050708, 'gpu_ms_median': 541.5545235009631, 'final_elite_energy': [0.4485258162021637, 0.4485609531402588, 0.44851213693618774, 0.44854220747947693, 0.448546826839447]}
+INFO 2026-11-03 14:12:37,913 serve 1384353 -- Deleting app ['jepa_planner']
+INFO 2026-11-03 14:12:40,957 serve 1384353 -- Connecting to existing Serve app in namespace "serve". New http_options/controller_options will not be applied.
+INFO 2026-11-03 14:13:22,157 serve 1384353 -- Application 'jepa_planner' is ready at http://0.0.0.0:8000/jepa.
+2 GPUs: {'deploy_s': 41.23431086540222, 'plan_ms_median': 10822.648336994462, 'encode_ms_median': 47.94854699866846, 'round_ms_median': 1077.8775179787772, 'gpu_ms_median': 1072.3651884909486, 'final_elite_energy': [0.4485258162021637, 0.4485609531402588, 0.44851213693618774, 0.44854220747947693, 0.448546826839447]}
+INFO 2026-11-03 14:14:27,143 serve 1384353 -- Deleting app ['jepa_planner']
+INFO 2026-11-03 14:14:30,271 serve 1384353 -- Connecting to existing Serve app in namespace "serve". New http_options/controller_options will not be applied.
+INFO 2026-11-03 14:15:11,477 serve 1384353 -- Application 'jepa_planner' is ready at http://0.0.0.0:8000/jepa.
+1 GPUs: {'deploy_s': 41.322890281677246, 'plan_ms_median': 21422.460367000895, 'encode_ms_median': 52.0669269899372, 'round_ms_median': 2137.620806490304, 'gpu_ms_median': 2132.2771565028233, 'final_elite_energy': [0.4485258162021637, 0.4485609531402588, 0.44851213693618774, 0.44854220747947693, 0.448546826839447]}
+INFO 2026-11-03 14:17:20,279 serve 1384353 -- Deleting app ['jepa_planner']

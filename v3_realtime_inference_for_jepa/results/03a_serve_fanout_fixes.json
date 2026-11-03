@@ -1,0 +1,7 @@
+{"date": "2026-11-03", "setup": "Serve app, 8 WorldModel replicas (1 A100 each), Planner fan-out, CEM 800x10 keep 80 H=2, 5 plans",
+ "v1_default_router_eager": {"plan_ms_median": 6130, "round_ms_median": 569, "gpu_ms": 374, "note": "pow-2 router sometimes put 2 shards on 1 replica -> round doubled"},
+ "v2_round_robin_router": {"plan_ms": [4080, 4061, 4076, 4085, 4098], "round_ms_median": 382, "collisions": "0/50 rounds", "encode_ms": 250},
+ "v3_rr_plus_compile_enabled_in_replicas": {"plan_ms": [2869, 2864, 2879, 2878, 2875], "round_ms_median": 282, "gpu_ms": 272, "encode_ms": 52, "collisions": "0/50 rounds"},
+ "findings": ["Serve replicas start with TORCHDYNAMO_DISABLE=1 -> torch.compile silently no-op; pop it in replica __init__ before importing torch",
+              "Ray overhead per CEM round (fan-out 8 shards + gather) ~10 ms",
+              "encode was CPU-launch-bound (29 ms GPU, ~130 ms wall) -> torch.compile on encoder -> ~50 ms incl. transfer"]}

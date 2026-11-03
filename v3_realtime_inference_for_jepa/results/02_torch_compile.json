@@ -1,0 +1,4 @@
+{"date": "2026-11-03", "script": "scripts/bench_compile.py", "gpu": "A100-SXM4-40GB x1",
+ "eager_score_s": {"100": 0.372, "400": 1.391}, "compiled_score_s": {"100": 0.272, "400": 1.060},
+ "compile_first_call_s": {"100": 12.6, "400": 10.3}, "compiled_vs_eager_max_abs_energy_diff": 0.00034,
+ "notes": "torch.compile(_block_step, dynamic=False): 1.31-1.37x. ~50% of A100 bf16 peak at 100 candidates."}

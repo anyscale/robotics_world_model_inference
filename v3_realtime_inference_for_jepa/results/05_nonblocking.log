@@ -1,0 +1,10 @@
+INFO 2026-11-03 14:23:43,384 serve 1402310 -- Connecting to existing Serve app in namespace "serve". New http_options/controller_options will not be applied.
+INFO 2026-11-03 14:24:30,618 serve 1402310 -- Application 'jepa_planner' is ready at http://0.0.0.0:8000/jepa.
+INFO 2026-11-03 14:24:30,626 serve 1402310 -- Started <ray.serve._private.router.SharedRouterLongPollClient object at 0x7b0810382d20>.
+blocking seed 0: 21.6 -> 4.5 cm in 25.3 s (step median 1.86 s)
+blocking seed 1: 21.6 -> 4.0 cm in 25.2 s (step median 1.86 s)
+blocking seed 2: 21.6 -> 4.0 cm in 25.2 s (step median 1.86 s)
+nonblocking seed 0: 21.6 -> 4.3 cm in 15.3 s (step median 1.04 s)
+nonblocking seed 1: 21.6 -> 4.5 cm in 15.3 s (step median 1.04 s)
+nonblocking seed 2: 21.6 -> 3.8 cm in 15.3 s (step median 1.04 s)
+INFO 2026-11-03 14:26:34,737 serve 1402310 -- Deleting app ['jepa_planner']
